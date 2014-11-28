@@ -1,0 +1,313 @@
+<html>
+<head>
+<meta charset="utf-8">
+<style type="text/css">
+body{margin:0px;}
+</style>
+<script>
+var ga={'events':{},'lib':{}, 'img':{},'sound':{},'data':{}, 'audio':{},
+	'ctrl':{'space':false, 'left':false, 'top':false, 'right':false, 'bottom':false}}; 
+
+// crt;是鍵盤控制
+window.onload=function(){
+	var loading = document.getElementById('loading');
+	loading.innerHTML = 'loading - 0%';
+	var imgFiles= { 'plane':'plane.png','explosion':'explosion.png','smoke':'smoke.png'};
+
+	var total = 3;
+	var loaded = 0;
+	for(var name in imgFiles){
+
+		ga.img[name] = new Image();
+		ga.img[name].src = imgFiles[name];
+		ga.img[name].onload = function(){
+		loaded++;
+		//loading.innerHTML = 'loading -' +(100*loaded/imgFiles.length)+' 0%';	
+
+			if(loaded>=total){
+
+					ga.ready()
+
+			}
+		};
+	}
+
+	//ga.ready()
+
+	//資源就是所有來自外部的東西，音效，圖片....
+	ga.img.plane= new Image();
+	ga.img.plane.src ='plane.png';
+	ga.sound.explosion = document.createElement('audio');
+	ga.sound.explosion.src = 'sound-bullet.mp3';
+	//ga.sound.explosion.play();
+
+
+
+	//下三行，環境建立
+	ga.audio.ctx = new window.AudioContext();
+
+	//var audioCtx, audioGain;
+	//audioCtx = new window.AudioContext(); // «Ø¥ß AudioContext (­µ®Ä³B²zÀô¹Ò)
+	ga.audio.gain = ga.audio.ctx.createGain(); // ²£¥Í AudioGain
+	ga.audio.gain.connect(ga.audio.ctx.destination); // ³sµ² AudioGain ¨ì AudioDestination
+
+
+	var soundFiles=('explosion':'explosion.mp3','bullet':'bullet.mp3');
+	// 載入音效 ，並且解碼的動作 
+
+	for(var name in soundFiles){
+			var req;
+			req = new XMLHttpRequest();
+			req.open("GET", soundFiles[name],true);
+			req.responseType = "arraybuffer";
+			// Decode asynchronously
+			req.onload = function(){
+			// 讀取到資料後，需經過箝制處理成為 AudioBuffer，才能被播放。
+				ga.audio.ctx.decodeAudioData(this.response, function(buffer){
+
+					ga.sound.bullet = buffer;
+					// 取得 AudioBuffer
+				});
+			}
+			req.send(null);
+	}
+
+};	
+
+ga.ready = function(){
+
+	document.getElementById('loading').style.display= 'none';
+	document.getElementById('start').style.display = 'block';
+
+};
+
+
+
+
+ga.start=function(){
+	ga.ctx=document.getElementById('cvs').getContext('2d');
+	ga.drawables=[];
+
+	//記錄回合數
+	ga.data.circle = 0;//剛開始是第零回合
+
+	window.setInterval(ga.refresh, 25);
+	//準備飛機
+	ga.data.plane = new ga.lib.Plane();
+	ga.drawables.push(ga.data.plane );
+	//var plane = new ga.lib.Plane();
+	//ga.drawables.push(plane);
+	// 開啟鍵盤控制
+
+	document.onkeydown = ga.events.keydown;
+	document.onkeyup   = ga.events.keyup;
+
+	// 切換畫面
+	document.getElementById('start').style.display='none';
+	document.getElementById('main').style.display='block';
+};
+
+	ga.events.keydown = function(e){
+
+		//alert(e.keyCode);
+
+		switch(e.keyCode){
+			case 32: ga.ctrl.space	= true;break;
+			case 37: ga.ctrl.left	= true;break;
+			case 38: ga.ctrl.top	= true;break;
+			case 39: ga.ctrl.right	= true;break;
+			case 40: ga.ctrl.bottom	= true;break;
+		}
+
+	};
+	ga.events.keyup = function(e){
+
+		switch(e.keyCode){
+
+			case 32: ga.ctrl.space  = false;break;
+			case 37: ga.ctrl.left	= false;break;
+			case 38: ga.ctrl.top	= false;break;
+			case 39: ga.ctrl.right	= false;break;
+			case 40: ga.ctrl.bottom	= false;break;
+		}
+
+	};
+
+
+ga.refresh=function(){
+	// §ó·s¸ê®Æ
+	for(var i=0;i<ga.drawables.length;i++){
+		if(ga.drawables[i].update()){
+			ga.drawables.splice(i, 1);
+			i--;
+		}
+	}
+	// ²MªÅµe­±
+	ga.ctx.clearRect(0, 0, ga.ctx.canvas.width, ga.ctx.canvas.height);
+	// ­«·sÃ¸»s
+	for(var i=0;i<ga.drawables.length;i++){
+		ga.drawables[i].draw();
+	}
+	ga.data.circle++;
+};
+
+
+ga.playSound = function(buffer){
+	ga.audio.gain.gain.value = 1; // 調音量
+	// ²£¥Í AudioSource¡A±N AudioSource ³sµ²¦Ü AudioGain
+	// SourceFile -> SourceBuffer -> AudioSource -> AudioGain -> AudioDestination
+	var source = ga.audio.ctx.createBufferSource();
+	source.buffer = buffer;
+	source.connect(ga.audio.gain);
+	// ¼½©ñ
+	source.start(0);
+}
+
+
+//開火
+ga.fire= function(){
+
+	ga.drawables.push(new ga.lib.Bullet());
+
+};
+
+
+//來寫飛機
+ga.lib.Plane=function(){
+	this.x=ga.ctx.canvas.width/2;
+	this.y=ga.ctx.canvas.height/2;
+	this.size = 20;
+	this.speed=5;
+	this.update=function(){
+
+		if(ga.ctrl.left){
+
+			this.x -= this.speed;
+		}
+		if(ga.ctrl.right){
+
+			this.x += this.speed;
+		}
+		if(ga.ctrl.top){
+
+			this.y -= this.speed;
+		}
+		if(ga.ctrl.bottom){
+
+			this.y += this.speed;
+		}
+		if(ga.ctrl.space){
+
+			if(ga.data.circle%5 == 0){
+
+				ga.fire();
+				ga.playSound(ga.sound.bullet);
+			}
+		}
+
+	
+	};
+	this.draw=function(){
+		
+		ga.ctx.save();
+
+		ga.ctx.drawImage(ga.img.plane,this.x - this.size/2,this.y - this.size/2,this.size,this.size);
+
+		ga.ctx.restore();
+
+
+
+	};
+};
+ga.lib.Bullet = function(){
+
+	this.x = ga.data.plane.x;
+	this.y = ga.data.plane.y - 10;
+	this.size = 2;
+	this.speed = 4;
+	this.update = function(){
+
+		this.y -= this.speed;
+		return this.y<0;//到天花板要死掉，要回收。
+
+	};
+	this.draw = function(){
+
+		ga.ctx.save();
+		ga.ctx.beginPath();
+		ga.ctx.arc(this.x, this.y, this.size, 0,2*Math.PI);//先定義一個圓 半徑，起始角度，終結角度
+		ga.ctx.fill();//再把它畫滿就可以了
+		ga.ctx.restore();
+
+	};
+
+};
+
+
+
+
+// 準備音效
+/*
+var audioCtx, audioGain;
+audioCtx = new window.AudioContext(); // «Ø¥ß AudioContext (­µ®Ä³B²zÀô¹Ò)
+audioGain = audioCtx.createGain(); // ²£¥Í AudioGain
+audioGain.connect(audioCtx.destination); // ³sµ² AudioGain ¨ì AudioDestination
+// ¸ü¤J­µ®Ä
+var req;
+req = new XMLHttpRequest();
+req.open("GET", "sound.mp3");
+req.responseType = "arraybuffer";
+// Decode asynchronously
+req.onload = function(){
+	// Åª¨ú¨ì¸ê®Æ«á¡A»Ý¸g¹L«e¸m³B²z¦¨¬° AudioBuffer¡A¤~¯à³Q¼½©ñ
+	audioCtx.decodeAudioData(this.response, function(buffer){
+		// ¨ú±o AudioBuffer
+	});
+}
+req.send(null);
+// Â²©öªº¼½©ñ¥\¯à
+function playSound(buffer){
+	audioGain.gain.value = 1; // ¥i½Õ¾ã­µ¶q
+	// ²£¥Í AudioSource¡A±N AudioSource ³sµ²¦Ü AudioGain
+	// SourceFile -> SourceBuffer -> AudioSource -> AudioGain -> AudioDestination
+	var source = audioCtx.createBufferSource();
+	source.buffer = buffer;
+	source.connect(audioGain);
+	// ¼½©ñ
+	source.start(0);
+}
+*/
+</script>
+</head>
+<body>
+<div id="loading"></div>
+
+<!-- <audio src="sound-explosion.mp3" controls="true"></audio> -->
+<div id="start">
+	<button onclick="ga.start();">Start</button>
+</div>
+<div id="main" style="display:none">
+	<canvas width="600" height="450" id="cvs"></canvas>
+</div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
